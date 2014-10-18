@@ -22,19 +22,19 @@
 # -s synchronizes uploading new packages to the public repository
 
 packages=(ossec-hids ossec-hids-agent) # only options available
-codenames=(sid jessie wheezy) # only options available
+debian_codenames=(sid jessie wheezy) # only options available
 architectures=(amd64 i386) # only options available
-ossec_version='2.8'
+ossec_version='2.8.1'
 signing_key='XXX'
 signing_pass='XXX'
-main_path=/root/ # path to ossec-hids and ossec-hids-agent directories
+main_path='/vagrant' # path to ossec-hids and ossec-hids-agent directories
 logfile=/var/log/generate_ossec.log
 
 # Function to write to LOG_FILE
-write_log() 
+write_log()
 {
   while read text
-  do 
+  do
       local logtime=`date "+%Y-%m-%d %H:%M:%S"`
       echo $logtime": $text" | tee -a $logfile;
   done
@@ -47,6 +47,7 @@ show_help()
   echo "-h | --help Displays this help."
   echo "-u | --update Updates chroot environments."
   echo "-b | --build Builds debian packages."
+  echo "-t | --build Builds ubuntu packages."
   echo "-s | --sync Synchronizes with the debian repository."
 }
 
@@ -77,6 +78,9 @@ update_changelog()
   elif [ $codename = "jessie" ]; then
     local debdist="testing"
   elif [ $codename = "wheezy" ]; then
+    local debdist="stable"
+  fi
+  if [ $codename = "trusty" ]; then
     local debdist="stable"
   fi
 
@@ -116,7 +120,7 @@ update_chroots()
     do
       echo "Updating chroot environment: ${codename}-${arch}" | write_log
       DIST=$codename ARCH=$arch pbuilder update
-      echo "Successfully updated chroot environment: ${codename}-${arch}" | write_log   
+      echo "Successfully updated chroot environment: ${codename}-${arch}" | write_log
     done
   done
 }
@@ -124,34 +128,34 @@ update_chroots()
 # Build packages
 build_packages()
 {
+codenames=${1:-$debian_codenames}
+
 for package in ${packages[@]}
-do 
+do
   for codename in ${codenames[@]}
   do
     for arch in ${architectures[@]}
     do
       source_path="${main_path}/${package}/${package}-${ossec_version}"
       changelog_path="${source_path}/debian/changelog"
-      
+
       # Updating changelog file with new codename, date and debdist.
       update_changelog ${changelog_path} ${codename}
 
       # Setting up global variable package_version, used for deb_file and changes_file.
-      read_package_version ${changelog_path}      
+      read_package_version ${changelog_path}
       deb_file="${package}_${ossec_version}-${package_version}${codename}_${arch}.deb"
       changes_file="${package}_${ossec_version}-${package_version}${codename}_${arch}.changes"
 
       # Building the Debian package.
       echo "Building Debian package ${package} for ${codename}-${arch}" | write_log
       cd ${source_path}
-      /usr/bin/pdebuild --use-pdebuild-internal --architecture ${arch} --buildresult /var/cache/pbuilder/${codename}-${arch}/result/ \
-      -- --basetgz /var/cache/pbuilder/${codename}-${arch}-base.tgz --distribution ${codename} --architecture ${arch} --aptcache \
-      /var/cache/pbuilder/${codename}-${arch}/aptcache/ --override-config
+      /usr/bin/pdebuild --use-pdebuild-internal --architecture ${arch}
       echo "Successfully built Debian package ${package} for ${codename}-${arch}" | write_log
 
       #Checking that package has at least 50 files to confirm it has been built correctly
       echo "Checking package ${deb_file} for ${codename}" | write_log
-      cd /var/cache/pbuilder/${codename}-${arch}/result/
+      cd /var/cache/pbuilder/result/
       files=$(/usr/bin/dpkg --contents ${deb_file} | wc -l)
       echo "Package ${deb_file} for ${codename} has ${files} files" | write_log
       if [ "${files}" -lt "50" ]; then
@@ -171,8 +175,8 @@ do
         send \"${signing_pass}\r\"
         expect -re \".*Successfully.*\"
       "
-      echo "Successfully signed Debian package ${changes_file} for ${codename}" | write_log   
- 
+      echo "Successfully signed Debian package ${changes_file} for ${codename}" | write_log
+
     done
   done
 done
@@ -196,7 +200,7 @@ do
       changes_file="${package}_${ossec_version}-${package_version}${codename}_${arch}.changes"
 
       # Uploading package to repository
-      cd /var/cache/pbuilder/${codename}-${arch}/result/
+      cd /var/cache/pbuilder/result/
       echo "Uploading package ${changes_file} for ${codename} to OSSEC repository" | write_log
       /usr/bin/dupload -f --to ossec ${changes_file}
       echo "Successfully uploaded package ${changes_file} for ${codename} to OSSEC repository" | write_log
@@ -244,6 +248,10 @@ case $key in
     ;;
   -b|--build)
     build_packages
+    shift
+    ;;
+  -t|--build)
+    build_packages trusty
     shift
     ;;
   -s|--sync)
