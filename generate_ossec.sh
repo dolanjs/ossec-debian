@@ -124,6 +124,10 @@ update_chroots()
 # Build packages
 build_packages()
 {
+# Default to debian codenames.
+# If -t ( build trusty) flag is set codename= Ubuntu codenames
+codenames=${1:-$debian_codenames}
+
 for package in ${packages[@]}
 do 
   for codename in ${codenames[@]}
@@ -244,6 +248,10 @@ case $key in
     ;;
   -b|--build)
     build_packages
+    shift
+    ;;
+  -t|--build)
+    build_packages trusty
     shift
     ;;
   -s|--sync)
