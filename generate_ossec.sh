@@ -24,10 +24,10 @@
 packages=(ossec-hids ossec-hids-agent) # only options available
 codenames=(sid jessie wheezy) # only options available
 architectures=(amd64 i386) # only options available
-ossec_version='2.8'
+ossec_version='2.8.1'
 signing_key='XXX'
 signing_pass='XXX'
-main_path=/root/ # path to ossec-hids and ossec-hids-agent directories
+main_path=/tmp # path to ossec-hids and ossec-hids-agent directories
 logfile=/var/log/generate_ossec.log
 
 # Function to write to LOG_FILE
